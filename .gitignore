@@ -1,0 +1,31 @@
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Models / large artifacts
+*.zip
+*.pth
+*.pt
+*.onnx
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.log
+
+# Env / secrets
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

@@ -1,0 +1,14 @@
+# DC-Twin dependencies
+numpy>=1.26
+gymnasium>=0.29
+stable-baselines3>=2.3
+torch>=2.2
+plotly>=5.20
+streamlit>=1.33
+pandas>=2.2
+matplotlib>=3.8
+kaleido>=0.2.1
+
+# Web bridge (serves the real twin to the ThermaMind React UI)
+fastapi>=0.110
+uvicorn[standard]>=0.29
