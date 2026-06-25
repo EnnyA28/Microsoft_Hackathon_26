@@ -1,121 +1,39 @@
 @import "tailwindcss";
 
-/* Theme tokens */
-:root { --tm-bg-start:#0a0e27; --tm-bg-end:#1a1f3a; --tm-cyan:#00d4ff; --tm-mint:#00ffaa; --tm-orange:#ffa500; }
-
-html, body, #root { height: 100%; }
-
-body { color:#e0e6ed; -webkit-font-smoothing:antialiased; background: linear-gradient(135deg, var(--tm-bg-start) 0%, var(--tm-bg-end) 100%); }
-
-/* Keyframes used by the mock */
-@keyframes tm-pulse { 0%,100%{ opacity:1; transform:scale(1)} 50%{ opacity:.5; transform:scale(1.2)} }
-@keyframes tm-voice-idle { 0%,100%{ height:20px } 50%{ height:35px } }
-@keyframes tm-voice-active { 0%,100%{ height:10px } 50%{ height:70px } }
-@keyframes tm-gpu-hot { 0%,100%{ box-shadow:0 0 5px rgba(239,68,68,.5) } 50%{ box-shadow:0 0 20px rgba(239,68,68,.8) } }
-
-/* GPU nodes + tooltip (plain CSS to keep Tailwind simple) */
-.gpu-node { aspect-ratio:1/1; border-radius:.375rem; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; transition:transform .3s; cursor:pointer; position:relative; }
-.gpu-node:hover { transform: scale(1.1); z-index:10; }
-.gpu-idle { background:#4b5563; }
-.gpu-active { background:#10b981; }
-.gpu-hot { background:#ef4444; animation: tm-gpu-hot 1.5s ease-in-out infinite; }
-.gpu-node::after { content: attr(data-label); position:absolute; bottom:110%; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.85); color:#e0e6ed; padding:4px 8px; border-radius:4px; font-size:.75rem; white-space:nowrap; opacity:0; pointer-events:none; transition: opacity .15s ease-in-out; }
-.gpu-node:hover::after { opacity:1; }
-
-/* Voice visualizer */
-.voice-visualizer .bar { width:4px; background: linear-gradient(180deg, var(--tm-cyan) 0%, var(--tm-mint) 100%); border-radius:2px; animation: tm-voice-idle 2s ease-in-out infinite; }
-.voice-visualizer.active .bar { animation: tm-voice-active .4s ease-in-out infinite; }
-
-/* Helper classes used in components (plain CSS equivalents) */
-.tm-glass { background: rgba(30,41,59,.4); border: 1px solid rgba(0,212,255,.3); border-radius: .75rem; backdrop-filter: blur(8px); }
-.tm-panel { background: rgba(30,41,59,.4); border: 1px solid rgba(0,212,255,.3); border-radius: .75rem; backdrop-filter: blur(8px); padding: 1.5rem; display:flex; flex-direction: column; }
-.tm-divider { border-bottom: 1px solid rgba(0,212,255,.2); padding-bottom: 1rem; margin-bottom: 1.5rem; }
-.tm-badge { display:inline-flex; align-items:center; gap:.5rem; padding:.25rem .75rem; border-radius: 9999px; font-size:.875rem; font-weight:600; border:1px solid rgba(255,255,255,.2); color:#e0e6ed; }
-.tm-badge-green { border-color:#34d399; color:#a7f3d0; background: rgba(16,185,129,.1); }
-.tm-ai { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; padding:.15rem .5rem; border-radius: .75rem; }
-.tm-pulse { animation: tm-pulse 2s infinite; }
-.tm-shadow-cyan { box-shadow: 0 10px 25px rgba(0,212,255,.3); }
-
-/* Floating Voice Assistant */
-.tm-assistant-button {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--tm-cyan) 0%, var(--tm-mint) 100%);
-  border: 3px solid rgba(255,255,255,.2);
-  box-shadow: 0 8px 32px rgba(0,212,255,.4);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all .3s ease;
-  z-index: 1000;
-  color: #0a0e27;
-  font-weight: bold;
+:root {
+  color-scheme: dark;
 }
 
-.tm-assistant-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 12px 40px rgba(0,212,255,.6);
+html,
+body,
+#root {
+  height: 100%;
 }
 
-.tm-assistant-button.open {
-  background: rgba(30,41,59,.95);
-  color: #e0e6ed;
-  border-color: var(--tm-cyan);
+body {
+  margin: 0;
+  color: #e2e8f0;
+  -webkit-font-smoothing: antialiased;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(16, 185, 129, 0.10), transparent 60%),
+    radial-gradient(1000px 500px at 0% 10%, rgba(20, 184, 166, 0.08), transparent 55%),
+    linear-gradient(160deg, #0b1120 0%, #0a0f1d 100%);
+  background-attachment: fixed;
 }
 
-.tm-assistant-panel {
-  position: fixed;
-  bottom: 110px;
-  right: 2rem;
-  width: 420px;
-  max-height: 600px;
-  background: rgba(15,23,42,.98);
-  border: 1px solid rgba(0,212,255,.5);
-  border-radius: 1rem;
-  padding: 1.5rem;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 20px 60px rgba(0,0,0,.5);
-  opacity: 0;
-  transform: translateY(20px) scale(0.95);
-  pointer-events: none;
-  transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
+/* Keep range thumbs on-brand across browsers */
+input[type="range"] {
+  height: 6px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.25);
 }
 
-.tm-assistant-panel.open {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: all;
-}
-
-/* Message bubbles */
-.message {
-  padding: .75rem;
-  border-radius: .75rem;
-  animation: slideIn .3s ease-out;
-}
-
-.message-ai {
-  background: rgba(0,212,255,.1);
-  border-left: 3px solid var(--tm-cyan);
-}
-
-.message-action {
-  background: rgba(255,165,0,.1);
-  border-left: 3px solid var(--tm-orange);
-}
-
-@keyframes slideIn {
+/* Subtle entrance for generated results */
+@keyframes eco-fade-in {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -123,58 +41,7 @@ body { color:#e0e6ed; -webkit-font-smoothing:antialiased; background: linear-gra
   }
 }
 
-/* Scrollbar styling for message history */
-.tm-assistant-panel > div:nth-child(3)::-webkit-scrollbar {
-  width: 6px;
+main > div > section,
+main > div > div {
+  animation: eco-fade-in 0.35s ease both;
 }
-
-.tm-assistant-panel > div:nth-child(3)::-webkit-scrollbar-track {
-  background: rgba(255,255,255,.05);
-  border-radius: 3px;
-}
-
-.tm-assistant-panel > div:nth-child(3)::-webkit-scrollbar-thumb {
-  background: rgba(0,212,255,.3);
-  border-radius: 3px;
-}
-
-.tm-assistant-panel > div:nth-child(3)::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,212,255,.5);
-}
-
-/* Scrollbar styling for cluster list */
-.cluster-list-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.cluster-list-scroll::-webkit-scrollbar-track {
-  background: rgba(255,255,255,.05);
-  border-radius: 3px;
-}
-
-.cluster-list-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0,212,255,.3);
-  border-radius: 3px;
-}
-
-.cluster-list-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,212,255,.5);
-}
-
-/* Responsive adjustments */
-@media (max-width: 640px) {
-  .tm-assistant-panel {
-    width: calc(100vw - 4rem);
-    right: 1rem;
-    bottom: 100px;
-    max-height: 500px;
-  }
-  
-  .tm-assistant-button {
-    bottom: 1.5rem;
-    right: 1.5rem;
-    width: 60px;
-    height: 60px;
-  }
-}
-

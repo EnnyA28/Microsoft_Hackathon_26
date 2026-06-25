@@ -21,9 +21,10 @@ build/
 .vite/
 *.log
 
-# Env / secrets
+# Env / secrets (never commit real keys; .env.example is the tracked template)
 .env
 .env.*
+!.env.example
 
 # OS / editor
 .DS_Store
