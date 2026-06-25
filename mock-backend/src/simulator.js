@@ -14,12 +14,17 @@ let azureIndex = 0;    // current position in the trace
 // Load Azure trace CSV (single column of CPU % values, no header)
 try {
   const __dirname = dirname(fileURLToPath(import.meta.url));
-  const tracePath = resolve(__dirname, "../../data/azure_vm_cpu.csv");
-  const raw = readFileSync(tracePath, "utf-8");
+  // Try both paths: local dev (../../data/) and deployed (../data/)
+  let raw;
+  try {
+    raw = readFileSync(resolve(__dirname, "../../data/azure_vm_cpu.csv"), "utf-8");
+  } catch {
+    raw = readFileSync(resolve(__dirname, "../data/azure_vm_cpu.csv"), "utf-8");
+  }
   azureTrace = raw.split("\n").filter(l => l.trim()).map(Number).filter(n => !isNaN(n));
   console.log(`📊 Azure trace loaded: ${azureTrace.length} readings`);
 } catch (e) {
-  console.warn("⚠️  Azure trace not found at data/azure_vm_cpu.csv — azure mode will fall back to synthetic");
+  console.warn("⚠️  Azure trace not found — azure mode will fall back to synthetic");
 }
 
 export function setWorkloadSource(source) {
