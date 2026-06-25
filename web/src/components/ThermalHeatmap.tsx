@@ -19,17 +19,8 @@ type NodeData = {
   status: string;
 };
 
-type ClusterInfo = {
-  name: string;
-  status: 'active' | 'idle' | 'optimizing';
-  gpu: number;
-  cooling: number;
-  power: number;
-};
-
 type Props = {
   nodes: NodeData[];
-  clusters: ClusterInfo[];
 };
 
 type ClusterSummary = {
@@ -42,7 +33,7 @@ type ClusterSummary = {
   rackTemps: number[];
 };
 
-export function ThermalHeatmap({ nodes, clusters }: Props) {
+export function ThermalHeatmap({ nodes }: Props) {
   const clusterSummaries = useMemo(() => {
     const grouped: Record<string, NodeData[]> = {};
     nodes.forEach(node => {

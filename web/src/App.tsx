@@ -547,7 +547,7 @@ function App() {
             </div>
             
             {clusterView === 'heatmap' ? (
-              <ThermalHeatmap nodes={telemetry?.nodes || []} clusters={telemetry?.clusters || []} />
+              <ThermalHeatmap nodes={telemetry?.nodes || []} />
             ) : (
               <ClusterList clusters={telemetry?.clusters || []} onClusterClick={handleClusterClick} />
             )}

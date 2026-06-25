@@ -1,6 +1,16 @@
 // frontend/src/components/AIAssistant.tsx
 import { useState, useRef, useEffect } from 'react';
 
+// Simple markdown-like formatter for AI responses
+function formatAIResponse(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-[#50E6FF]">$1</strong>') // **bold** → cyan bold
+    .replace(/^- (.+)/gm, '<li class="ml-4 list-disc">$1</li>') // - bullet points
+    .replace(/(<li.*<\/li>\n?)+/g, '<ul class="my-2 space-y-1">$&</ul>') // wrap consecutive <li> in <ul>
+    .replace(/\n\n/g, '</p><p class="mt-2">') // double newline → paragraph
+    .replace(/\n/g, '<br/>'); // single newline → line break
+}
+
 type AIAssistantProps = {
   wsRef: import('react').RefObject<WebSocket | null>;
   connectionStatus: string;
@@ -251,7 +261,7 @@ export function AIAssistant({ wsRef, connectionStatus }: AIAssistantProps) {
             {/* Response Display */}
             {response && (
               <div className="mb-4 p-4 bg-slate-900/50 rounded-lg border border-cyan-400/20">
-                <div className="text-sm leading-relaxed whitespace-pre-line">{response}</div>
+                <div className="text-sm leading-relaxed ai-response" dangerouslySetInnerHTML={{ __html: formatAIResponse(response) }} />
               </div>
             )}
 
