@@ -1,5 +1,4 @@
 import { useMemo, useState, useEffect } from 'react';
-import ClusterMap from './components/ClusterMap';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -480,7 +479,6 @@ function App() {
   };
 
   // Map view state
-  const [showMap, setShowMap] = useState(false);
 
   // Build live cluster data whenever telemetry updates
   const liveClusterData = selected3DClusterName ? buildClusterData(selected3DClusterName) : null;
