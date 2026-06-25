@@ -1,5 +1,69 @@
 // src/simulator.js
 import { getClusterState } from "./stateMachine.js";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+// ─── Workload Source ───────────────────────────────────────────────────────────
+// "synthetic" = random with bias/spikes (default)
+// "azure"     = replay real Azure VM CPU trace data
+let workloadSource = "synthetic";
+let azureTrace = [];   // normalized 0-100 CPU utilization values
+let azureIndex = 0;    // current position in the trace
+
+// Load Azure trace CSV (single column of CPU % values, no header)
+try {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  // Try both paths: local dev (../../data/) and deployed (../data/)
+  let raw;
+  try {
+    raw = readFileSync(resolve(__dirname, "../../data/azure_vm_cpu.csv"), "utf-8");
+  } catch {
+    raw = readFileSync(resolve(__dirname, "../data/azure_vm_cpu.csv"), "utf-8");
+  }
+  azureTrace = raw.split("\n").filter(l => l.trim()).map(Number).filter(n => !isNaN(n));
+  console.log(`📊 Azure trace loaded: ${azureTrace.length} readings`);
+} catch (e) {
+  console.warn("⚠️  Azure trace not found — azure mode will fall back to synthetic");
+}
+
+export function setWorkloadSource(source) {
+  if (source === "azure" || source === "synthetic") {
+    workloadSource = source;
+    azureIndex = 0; // reset replay position on switch
+    console.log(`🔄 Workload source → ${source}`);
+  }
+}
+
+export function getWorkloadSource() {
+  return workloadSource;
+}
+
+// Get next GPU load from Azure trace (per-node, wraps around)
+// Real Azure VMs average ~10% CPU — we scale up to datacenter GPU range
+// while preserving the real-world spiky pattern (idle→burst transitions)
+// Uses ONE trace value per time step as the base load for all nodes,
+// with per-node jitter so individual nodes vary but the overall trend moves.
+let azureStepBase = null; // cached base for current tick
+let azureStepId = -1;     // which tick we're on
+
+function beginAzureStep() {
+  // Call once per telemetry tick to advance the trace by one reading
+  if (azureTrace.length === 0) return;
+  azureStepId++;
+  const raw = azureTrace[azureIndex % azureTrace.length]; // 0-100
+  azureIndex++;
+  // Scale: shift baseline to ~40% and amplify so spikes hit 85-95%
+  azureStepBase = 25 + raw * 0.70;
+}
+
+function getAzureGpuLoad(clusterBias) {
+  if (azureStepBase === null) return null;
+  // Per-node jitter ±12% around the shared base + cluster personality
+  const jitter = (Math.random() - 0.5) * 24;
+  const val = azureStepBase + clusterBias * 0.4 + jitter;
+  return Math.min(100, Math.max(0, val));
+}
 
 // 🧊 Cooling state tracker (simulates physical cooling system lag)
 const coolingState = {
@@ -8,12 +72,10 @@ const coolingState = {
   C: { current: 50, target: 50, lastGpuLoad: 50 },
   D: { current: 35, target: 35, lastGpuLoad: 35 },
   E: { current: 55, target: 55, lastGpuLoad: 55 },
-  F: { current: 40, target: 40, lastGpuLoad: 40 },
-  G: { current: 48, target: 48, lastGpuLoad: 48 },
-  H: { current: 45, target: 45, lastGpuLoad: 45 }
+  F: { current: 40, target: 40, lastGpuLoad: 40 }
 };
 
-// 🌍 Global ConocoPhillips data center / operations hub coordinates
+// 🌍 Global data center coordinates
 const globalLocations = [
   { name: "Houston, USA", lat: 29.7604, lng: -95.3698 },
   { name: "Calgary, Canada", lat: 51.0447, lng: -114.0719 },
@@ -21,11 +83,9 @@ const globalLocations = [
   { name: "Doha, Qatar", lat: 25.2854, lng: 51.531 },
   { name: "Perth, Australia", lat: -31.9505, lng: 115.8605 },
   { name: "Jakarta, Indonesia", lat: -6.2088, lng: 106.8456 },
-  { name: "Anchorage, Alaska", lat: 61.2181, lng: -149.9003 },
-  { name: "Beijing, China", lat: 39.9042, lng: 116.4074 },
 ];
 
-// 🗺️ Regional data center naming by ConocoPhillips zones
+// 🗺️ Regional data center naming
 const dataCenters = {
   "Houston, USA": "North America Data Center",
   "Calgary, Canada": "Canadian AI Hub",
@@ -33,8 +93,6 @@ const dataCenters = {
   "Doha, Qatar": "MENA Operations Hub",
   "Perth, Australia": "Asia-Pacific Cluster",
   "Jakarta, Indonesia": "Indonesia Field Systems",
-  "Anchorage, Alaska": "Arctic Compute Node",
-  "Beijing, China": "China AI Operations",
 };
 
 // 🏢 Generate a single GPU cluster (a group of 8 GPU nodes)
@@ -49,8 +107,6 @@ function generateCluster(clusterName, clusterIndex) {
     { name: 'D', gpuBias: -20, location: 'Doha', workload: 'Development' },     // Idle cluster
     { name: 'E', gpuBias: 15, location: 'Perth', workload: 'Seismic Analysis' }, // High load
     { name: 'F', gpuBias: -10, location: 'Jakarta', workload: 'Field Data' },   // Low-medium load
-    { name: 'G', gpuBias: 10, location: 'Anchorage', workload: 'Research' },    // Medium-high load
-    { name: 'H', gpuBias: 0, location: 'Beijing', workload: 'AI Models' },      // Balanced load
   ];
   
   const profile = clusterProfiles[clusterIndex] || clusterProfiles[0];
@@ -67,18 +123,30 @@ function generateCluster(clusterName, clusterIndex) {
     globalSite.name.toLowerCase().includes(region.toLowerCase()) ||
     profile.location.toLowerCase().includes(region.toLowerCase());
   
-  // Generate 8 GPU nodes for this cluster
+  // Generate 48 GPU nodes for this cluster (6 racks × 8 nodes per rack)
+  const RACKS_PER_CLUSTER = 6;
+  const NODES_PER_RACK = 8;
+  const TOTAL_NODES = RACKS_PER_CLUSTER * NODES_PER_RACK;
   const nodes = [];
   let totalGpu = 0;
   let totalCooling = 0;
   let totalPower = 0;
   
-  for (let i = 0; i < 8; i++) {
-    const nodeId = clusterIndex * 8 + i + 1; // Global node ID (1-32)
-    const nodeLabel = `${profile.name}${i + 1}`; // e.g., A1, A2, ..., B1, B2, etc.
+  for (let i = 0; i < TOTAL_NODES; i++) {
+    const rackIndex = Math.floor(i / NODES_PER_RACK); // 0-5 (which rack)
+    const slotIndex = i % NODES_PER_RACK; // 0-7 (slot within rack)
+    const nodeId = clusterIndex * TOTAL_NODES + i + 1; // Global node ID
+    const nodeLabel = `${profile.name}${rackIndex + 1}-${slotIndex + 1}`; // e.g., A1-1, A1-2, ..., A6-8
     
     // Apply spike multiplier to affected clusters only
-    const rawGpu = 50 + profile.gpuBias + (Math.random() * 30 - 15);
+    let rawGpu;
+    if (workloadSource === "azure" && azureStepBase !== null) {
+      // Use real Azure VM CPU trace — one reading per tick, per-node jitter
+      rawGpu = getAzureGpuLoad(profile.gpuBias);
+    } else {
+      // Synthetic: random with bias
+      rawGpu = 50 + profile.gpuBias + (Math.random() * 30 - 15);
+    }
     const adjustedGpu = isAffected ? rawGpu * loadMultiplier : rawGpu;
     const gpuLoad = Math.min(100, Math.max(0, Math.floor(adjustedGpu)));
     
@@ -133,8 +201,8 @@ function generateCluster(clusterName, clusterIndex) {
   }
   
   // Cluster-level aggregated stats
-  const avgGpu = Math.round(totalGpu / 8);
-  const avgCooling = Math.round(totalCooling / 8);
+  const avgGpu = Math.round(totalGpu / TOTAL_NODES);
+  const avgCooling = Math.round(totalCooling / TOTAL_NODES);
   const clusterStatus = nodes.every(n => n.status === "offline") ? "offline" : "online";
   
   // 🧮 Regional temperature bias
@@ -156,7 +224,7 @@ function generateCluster(clusterName, clusterIndex) {
     cooling: avgCooling,
     temperature: 20 + avgGpu * 0.2 + regionalTempBias,
     powerUsage: totalPower,
-    nodeCount: 8,
+    nodeCount: TOTAL_NODES,
     activeNodes: nodes.filter(n => n.status === "online").length,
     // 🌐 Global data center info
     site: globalSite.name,
@@ -170,11 +238,15 @@ function generateCluster(clusterName, clusterIndex) {
   };
 }
 
-// 🧩 Generates telemetry for 8 main clusters (64 total GPU nodes)
+// 🧩 Generates telemetry for 6 clusters (288 total GPU nodes: 6 clusters × 6 racks × 8 nodes)
 export function generateTelemetry() {
+  // Advance Azure trace by one step so all nodes in this tick share the same base load
+  if (workloadSource === "azure") {
+    beginAzureStep();
+  }
   const clusters = [];
-  for (let i = 0; i < 8; i++) {
-    clusters.push(generateCluster(['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'][i], i));
+  for (let i = 0; i < 6; i++) {
+    clusters.push(generateCluster(['A', 'B', 'C', 'D', 'E', 'F'][i], i));
   }
   return clusters;
 }

@@ -15,10 +15,51 @@ export function getMuteState() {
 }
 
 // backend/src/aiAssistant.js
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import axios from 'axios';
+import { AzureOpenAI } from 'openai';
+import sdk from 'microsoft-cognitiveservices-speech-sdk';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// --- Azure OpenAI (LLM) ---
+const AZURE_OPENAI_DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+
+export function isLLMConfigured() {
+  return Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY);
+}
+
+export function isTTSConfigured() {
+  return Boolean(process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION);
+}
+
+let _openaiClient = null;
+function getOpenAIClient() {
+  if (!isLLMConfigured()) {
+    throw new Error('Azure OpenAI not configured (set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY)');
+  }
+  if (!_openaiClient) {
+    _openaiClient = new AzureOpenAI({
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+      apiKey: process.env.AZURE_OPENAI_API_KEY,
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-10-21',
+      deployment: AZURE_OPENAI_DEPLOYMENT,
+    });
+  }
+  return _openaiClient;
+}
+
+/**
+ * Run a chat completion against Azure OpenAI and return trimmed text.
+ * @param {string} prompt
+ * @returns {Promise<string>}
+ */
+async function generateText(prompt) {
+  const client = getOpenAIClient();
+  const result = await client.chat.completions.create({
+    model: AZURE_OPENAI_DEPLOYMENT,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 300,
+    temperature: 0.7,
+  });
+  return (result.choices[0]?.message?.content || '').trim();
+}
 
 /**
  * Analyze cluster telemetry data and provide insights
@@ -54,18 +95,9 @@ YOUR TASK:
 Keep response under 150 words. Be technical but clear. Focus on what matters most RIGHT NOW.`;
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContentStream(prompt);
-
-    let fullText = '';
-    for await (const chunk of result.stream) {
-      const chunkText = chunk.text();
-      fullText += chunkText;
-    }
-
-    return fullText.trim();
+    return await generateText(prompt);
   } catch (error) {
-    console.error('Gemini API error:', error);
+    console.error('Azure OpenAI error:', error);
     throw new Error('Failed to generate AI analysis');
   }
 }
@@ -77,41 +109,45 @@ Keep response under 150 words. Be technical but clear. Focus on what matters mos
  */
 export async function textToSpeech(text) {
   if (isMuted) {
-    console.log("🔇 Skipping ElevenLabs TTS — Assistant is muted.");
+    console.log("🔇 Skipping Azure TTS — Assistant is muted.");
     return null;
   }
-  
-  if (!process.env.ELEVENLABS_API_KEY) {
-    throw new Error('ELEVENLABS_API_KEY not configured');
+
+  if (!isTTSConfigured()) {
+    throw new Error('Azure Speech not configured (set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION)');
   }
 
-  const voiceId = process.env.ELEVENLABS_VOICE_ID || 'EXAVITQu4vr4xnSDxMaL'; // Default: Bella
+  const speechConfig = sdk.SpeechConfig.fromSubscription(
+    process.env.AZURE_SPEECH_KEY,
+    process.env.AZURE_SPEECH_REGION
+  );
+  speechConfig.speechSynthesisVoiceName = process.env.AZURE_SPEECH_VOICE || 'en-US-AvaNeural';
+  // MP3 keeps the payload small for sending over the websocket as base64.
+  speechConfig.speechSynthesisOutputFormat =
+    sdk.SpeechSynthesisOutputFormat.Audio16Khz32KBitRateMonoMp3;
+
+  const synthesizer = new sdk.SpeechSynthesizer(speechConfig, null);
 
   try {
-    const response = await axios.post(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
+    return await new Promise((resolve, reject) => {
+      synthesizer.speakTextAsync(
         text,
-        model_id: 'eleven_turbo_v2_5', // Fastest model
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.75,
-          style: 0.0,
-          use_speaker_boost: true,
+        (result) => {
+          synthesizer.close();
+          if (result.reason === sdk.ResultReason.SynthesizingAudioCompleted) {
+            resolve(Buffer.from(result.audioData));
+          } else {
+            reject(new Error(result.errorDetails || 'Speech synthesis failed'));
+          }
         },
-      },
-      {
-        headers: {
-          'xi-api-key': process.env.ELEVENLABS_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        responseType: 'arraybuffer',
-      }
-    );
-
-    return Buffer.from(response.data);
+        (error) => {
+          synthesizer.close();
+          reject(error);
+        }
+      );
+    });
   } catch (error) {
-    console.error('ElevenLabs API error:', error.response?.data || error.message);
+    console.error('Azure Speech error:', error.message || error);
     throw new Error('Failed to generate speech');
   }
 }
@@ -138,18 +174,9 @@ ${clusters.map(c => `• ${c.name}: ${c.gpu}% GPU, ${c.cooling}% cooling, ${c.po
 Answer in 2-3 sentences. Be specific and reference actual cluster data. If the question can't be answered with current data, say so.`;
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContentStream(prompt);
-
-    let fullText = '';
-    for await (const chunk of result.stream) {
-      const chunkText = chunk.text();
-      fullText += chunkText;
-    }
-
-    return fullText.trim();
+    return await generateText(prompt);
   } catch (error) {
-    console.error('Gemini API error:', error);
+    console.error('Azure OpenAI error:', error);
     throw new Error('Failed to generate AI response');
   }
 }

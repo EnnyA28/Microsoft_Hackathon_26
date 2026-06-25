@@ -45,6 +45,7 @@ type TelemetrySnapshot = {
   chart: ChartData;
   clusters: Cluster[];
   nodes: Node[];
+  workloadSource?: 'synthetic' | 'azure';
 };
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';

@@ -155,10 +155,9 @@ export function AIAssistant({ wsRef, connectionStatus }: AIAssistantProps) {
         <div className="fixed bottom-24 right-6 w-96 tm-glass border border-cyan-400/30 rounded-xl shadow-2xl overflow-hidden">
           <div className="p-4 border-b border-cyan-400/30 bg-gradient-to-r from-cyan-500/10 to-emerald-500/10">
             <div className="flex items-center gap-2">
-              <span className="text-xl">🧠</span>
+              <span className="text-xl">❄️</span>
               <div className="flex-1">
-                <div className="font-semibold">ThermaMind AI Assistant</div>
-                <div className="text-xs text-slate-400">Powered by Gemini + ElevenLabs</div>
+                <div className="font-semibold">ArcticFlow AI Assistant</div>
               </div>
               {isPlaying && (
                 <div className="tm-badge tm-badge-green text-xs">

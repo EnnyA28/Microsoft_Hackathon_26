@@ -21,11 +21,16 @@ build/
 .vite/
 *.log
 
+# Runtime data / logs
+mock-backend/data_logs/
+
 # Env / secrets
 .env
 .env.*
+!web/.env.production
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
+*.code-workspace

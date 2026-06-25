@@ -1,5 +1,5 @@
 // src/webSocket.js
-import { generateTelemetry } from "./simulator.js";
+import { generateTelemetry, setWorkloadSource, getWorkloadSource } from "./simulator.js";
 import { getClusterState, simulateLoadSpike } from "./stateMachine.js";
 import { appendLog } from "./utils/logger.js";
 import { analyzeClusterData, textToSpeech, askQuestion } from "./aiAssistant.js";
@@ -156,25 +156,66 @@ function updateChartData(clusters) {
 }
 
 // 📊 Calculate stats for hero section
+// Accumulate CO₂ savings over the session (resets on restart)
+let cumulativeCO2Kg = 0;
+let lastStatsTimestamp = Date.now();
+
 function calculateStats(clusters) {
-  // Sum up power from all clusters
-  const currentPowerDraw = clusters.reduce((sum, c) => sum + c.powerUsage, 0) / 1000; // Convert to MW
-  const baselinePower = 2.77; // MW baseline
-  const energySavings = ((baselinePower - currentPowerDraw) / baselinePower) * 100;
-  
-  // Calculate PUE (Power Usage Effectiveness)
-  const totalPower = clusters.reduce((sum, c) => sum + c.powerUsage + c.cooling, 0);
-  const itPower = clusters.reduce((sum, c) => sum + c.powerUsage, 0);
-  const coolingPUE = itPower > 0 ? totalPower / itPower : 1.0;
-  
-  // CO2 offset calculation
-  const CO2_PER_MW_HOUR = 278; // kg CO2 per MW-hour
-  const co2OffsetKg = Math.round(currentPowerDraw * CO2_PER_MW_HOUR);
-  
+  const now = Date.now();
+  const elapsedHours = (now - lastStatsTimestamp) / 3600000; // fraction of an hour since last tick
+  lastStatsTimestamp = now;
+
+  // IT power: sum of all node power (kW) — this is the real compute load
+  const itPowerKW = clusters.reduce((sum, c) => sum + c.powerUsage, 0); // kW
+
+  // Cooling power: each node's cooling is 0-100%, convert to kW
+  // A typical GPU node cooling (fans, CRAC share) ≈ 0.8 kW at 100%
+  const COOLING_KW_PER_NODE_MAX = 0.8;
+  let aiCoolingKW = 0;
+  let baselineCoolingKW = 0;
+  let totalNodes = 0;
+
+  clusters.forEach(cluster => {
+    cluster.nodes.forEach(node => {
+      if (node.status === "offline") return;
+      totalNodes++;
+      // AI-optimized cooling (what we're actually using)
+      aiCoolingKW += (node.cooling / 100) * COOLING_KW_PER_NODE_MAX;
+      // Baseline: traditional fixed-setpoint over-cools to 70-80% regardless of load
+      const baselineCool = Math.max(70, node.gpuLoad + 20); // always at least 70%, or load+20%
+      baselineCoolingKW += (baselineCool / 100) * COOLING_KW_PER_NODE_MAX;
+    });
+  });
+
+  // Total power (IT + cooling) in MW
+  const currentTotalMW = (itPowerKW + aiCoolingKW) / 1000;
+  const baselineTotalMW = (itPowerKW + baselineCoolingKW) / 1000;
+
+  // Energy savings %
+  const energySavings = baselineTotalMW > 0
+    ? ((baselineTotalMW - currentTotalMW) / baselineTotalMW) * 100
+    : 0;
+
+  // PUE = Total Facility Power / IT Power (realistic range: 1.1 - 1.6)
+  const coolingPUE = itPowerKW > 0
+    ? (itPowerKW + aiCoolingKW) / itPowerKW
+    : 1.0;
+
+  // CO₂ offset: accumulate over session lifetime
+  // US grid average: ~0.39 kg CO₂ per kWh
+  const CO2_KG_PER_KWH = 0.39;
+  const powerSavedKW = (baselineCoolingKW - aiCoolingKW);
+  const energySavedKWh = powerSavedKW * elapsedHours;
+  cumulativeCO2Kg += energySavedKWh * CO2_KG_PER_KWH;
+
+  // Project to full-day savings for display
+  const dailySavingsKWh = powerSavedKW * 24;
+  const dailyCO2Kg = Math.round(dailySavingsKWh * CO2_KG_PER_KWH);
+
   return {
     energySavings: energySavings,
-    co2OffsetKg: co2OffsetKg,
-    powerDrawMW: currentPowerDraw,
+    co2OffsetKg: dailyCO2Kg,           // projected daily CO₂ savings
+    powerDrawMW: currentTotalMW,
     coolingPUE: coolingPUE
   };
 }
@@ -188,7 +229,7 @@ export function startTelemetry(wss) {
 
     // Send complete telemetry snapshot every 2 seconds
     const telemetryInterval = setInterval(() => {
-      // Generate 4 clusters, each with 8 GPU nodes (32 total)
+      // Generate 6 clusters, each with 48 GPU nodes (288 total)
       const clusters = generateTelemetry();
       
       // Build complete payload matching frontend expectations
@@ -196,8 +237,9 @@ export function startTelemetry(wss) {
         timestamp: Date.now(),
         stats: calculateStats(clusters),
         chart: updateChartData(clusters),
-        clusters: transformClustersForFrontend(clusters), // 4 clusters
-        nodes: generateNodes(clusters) // 32 individual GPU nodes
+        clusters: transformClustersForFrontend(clusters), // 6 clusters
+        nodes: generateNodes(clusters), // 288 individual GPU nodes
+        workloadSource: getWorkloadSource() // "synthetic" or "azure"
       };
       
       ws.send(JSON.stringify({ 
@@ -240,6 +282,23 @@ export function startTelemetry(wss) {
           return;
         }
 
+        // 🔄 Workload source toggle (synthetic vs azure)
+        if (data.type === "set-workload-source") {
+          setWorkloadSource(data.source);
+          // Broadcast the new source to all clients
+          wss.clients.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify({ type: "workload-source", source: getWorkloadSource() }));
+            }
+          });
+          return;
+        }
+
+        if (data.type === "get-workload-source") {
+          ws.send(JSON.stringify({ type: "workload-source", source: getWorkloadSource() }));
+          return;
+        }
+
         
         if (data.type === "ping") {
           ws.send(
@@ -262,9 +321,9 @@ export function startTelemetry(wss) {
             
             // Optionally convert to speech (if TTS is enabled)
             let audioBase64 = null;
-            if (process.env.ELEVENLABS_API_KEY && data.withAudio) {
+            if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION && data.withAudio) {
               const audioBuffer = await textToSpeech(analysis);
-              audioBase64 = audioBuffer.toString('base64');
+              if (audioBuffer) audioBase64 = audioBuffer.toString('base64');
             }
             
             ws.send(JSON.stringify({
@@ -295,9 +354,9 @@ export function startTelemetry(wss) {
             const answer = await askQuestion(data.question, payload);
             
             let audioBase64 = null;
-            if (process.env.ELEVENLABS_API_KEY && data.withAudio) {
+            if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION && data.withAudio) {
               const audioBuffer = await textToSpeech(answer);
-              audioBase64 = audioBuffer.toString('base64');
+              if (audioBuffer) audioBase64 = audioBuffer.toString('base64');
             }
             
             ws.send(JSON.stringify({
