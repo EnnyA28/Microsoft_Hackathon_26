@@ -157,9 +157,9 @@ function updateChartData(clusters) {
 
 // 📊 Calculate stats for hero section
 function calculateStats(clusters) {
-  // Sum up power from all clusters
+  // Sum up power from all clusters (288 nodes total: 6 clusters × 48 nodes)
   const currentPowerDraw = clusters.reduce((sum, c) => sum + c.powerUsage, 0) / 1000; // Convert to MW
-  const baselinePower = 2.77; // MW baseline
+  const baselinePower = currentPowerDraw * 1.15; // Baseline = 15% more than AI-optimized (traditional over-cooling)
   const energySavings = ((baselinePower - currentPowerDraw) / baselinePower) * 100;
   
   // Calculate PUE (Power Usage Effectiveness)
@@ -188,7 +188,7 @@ export function startTelemetry(wss) {
 
     // Send complete telemetry snapshot every 2 seconds
     const telemetryInterval = setInterval(() => {
-      // Generate 4 clusters, each with 8 GPU nodes (32 total)
+      // Generate 6 clusters, each with 48 GPU nodes (288 total)
       const clusters = generateTelemetry();
       
       // Build complete payload matching frontend expectations
@@ -196,8 +196,8 @@ export function startTelemetry(wss) {
         timestamp: Date.now(),
         stats: calculateStats(clusters),
         chart: updateChartData(clusters),
-        clusters: transformClustersForFrontend(clusters), // 4 clusters
-        nodes: generateNodes(clusters) // 32 individual GPU nodes
+        clusters: transformClustersForFrontend(clusters), // 6 clusters
+        nodes: generateNodes(clusters) // 288 individual GPU nodes
       };
       
       ws.send(JSON.stringify({ 
@@ -262,9 +262,9 @@ export function startTelemetry(wss) {
             
             // Optionally convert to speech (if TTS is enabled)
             let audioBase64 = null;
-            if (process.env.ELEVENLABS_API_KEY && data.withAudio) {
+            if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION && data.withAudio) {
               const audioBuffer = await textToSpeech(analysis);
-              audioBase64 = audioBuffer.toString('base64');
+              if (audioBuffer) audioBase64 = audioBuffer.toString('base64');
             }
             
             ws.send(JSON.stringify({
@@ -295,9 +295,9 @@ export function startTelemetry(wss) {
             const answer = await askQuestion(data.question, payload);
             
             let audioBase64 = null;
-            if (process.env.ELEVENLABS_API_KEY && data.withAudio) {
+            if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION && data.withAudio) {
               const audioBuffer = await textToSpeech(answer);
-              audioBase64 = audioBuffer.toString('base64');
+              if (audioBuffer) audioBase64 = audioBuffer.toString('base64');
             }
             
             ws.send(JSON.stringify({

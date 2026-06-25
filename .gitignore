@@ -21,6 +21,9 @@ build/
 .vite/
 *.log
 
+# Runtime data / logs
+mock-backend/data_logs/
+
 # Env / secrets
 .env
 .env.*

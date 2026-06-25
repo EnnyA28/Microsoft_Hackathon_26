@@ -22,16 +22,16 @@ const server = app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   
   // Check AI configuration
-  if (process.env.GEMINI_API_KEY) {
-    console.log('✅ AI Assistant: Gemini API configured');
+  if (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY) {
+    console.log('✅ AI Assistant: Azure OpenAI configured');
   } else {
-    console.log('⚠️  AI Assistant: Gemini API not configured (set GEMINI_API_KEY in .env)');
+    console.log('⚠️  AI Assistant: Azure OpenAI not configured (set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY in .env)');
   }
-  
-  if (process.env.ELEVENLABS_API_KEY) {
-    console.log('✅ AI Assistant: ElevenLabs TTS configured');
+
+  if (process.env.AZURE_SPEECH_KEY && process.env.AZURE_SPEECH_REGION) {
+    console.log('✅ AI Assistant: Azure Speech TTS configured');
   } else {
-    console.log('⚠️  AI Assistant: ElevenLabs TTS not configured (set ELEVENLABS_API_KEY in .env)');
+    console.log('⚠️  AI Assistant: Azure Speech TTS not configured (set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION in .env)');
   }
 });
 
