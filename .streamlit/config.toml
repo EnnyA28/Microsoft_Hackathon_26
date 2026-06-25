@@ -1,9 +1,0 @@
-# Disable Streamlit's source file watcher.
-# The watcher scans every imported module's __path__ for hot-reload, which
-# crashes on PyTorch (torch.classes) with:
-#   RuntimeError: Tried to instantiate class '__path__._path', but it does not exist!
-# PyTorch is pulled in by the PPO controller (Stable-Baselines3 -> torch).
-# "none" disables hot-reload but keeps the demo stable. This does NOT affect
-# the Play/Pause/Reset animation, which uses st.rerun() internally.
-[server]
-fileWatcherType = "none"

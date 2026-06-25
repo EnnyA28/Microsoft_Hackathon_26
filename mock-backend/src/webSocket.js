@@ -347,7 +347,8 @@ export function startTelemetry(wss) {
           const clusters = generateTelemetry();
           const payload = {
             stats: calculateStats(clusters),
-            clusters: transformClustersForFrontend(clusters)
+            clusters: transformClustersForFrontend(clusters),
+            nodes: generateNodes(clusters)
           };
           
           try {
