@@ -48,18 +48,36 @@ function getOpenAIClient() {
 /**
  * Run a chat completion against Azure OpenAI and return trimmed text.
  * @param {string} prompt
+ * @param {string} systemPrompt
  * @returns {Promise<string>}
  */
-async function generateText(prompt) {
+async function generateText(prompt, systemPrompt = null) {
   const client = getOpenAIClient();
+  const messages = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: prompt });
   const result = await client.chat.completions.create({
     model: AZURE_OPENAI_DEPLOYMENT,
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 300,
-    temperature: 0.7,
+    messages,
+    max_tokens: 400,
+    temperature: 0.6,
   });
   return (result.choices[0]?.message?.content || '').trim();
 }
+
+const SYSTEM_PROMPT = `You are ArcticFlow AI, an expert datacenter cooling optimization assistant built for Microsoft Azure infrastructure.
+
+Your role:
+- Analyze real-time GPU cluster telemetry (utilization, temperatures, cooling %, power draw)
+- Provide actionable recommendations to reduce energy waste and CO₂ emissions
+- Explain the physics: COP (Coefficient of Performance), PUE, thermal dynamics
+- Quantify savings in kWh, dollars, and CO₂ tonnes when possible
+
+Personality: Technical but concise. Data-driven. Environment-first mindset. Reference specific clusters and numbers from the live data. Never generic — always grounded in what's happening NOW.
+
+Format: Use short paragraphs. Bold key metrics. Keep responses under 150 words unless asked for detail.`;
 
 /**
  * Analyze cluster telemetry data and provide insights
@@ -67,35 +85,42 @@ async function generateText(prompt) {
  * @returns {Promise<string>} - AI-generated analysis
  */
 export async function analyzeClusterData(telemetrySnapshot) {
-  const { clusters, stats } = telemetrySnapshot;
+  const { clusters, stats, nodes } = telemetrySnapshot;
   
-  // Build context-rich prompt with ACTUAL data
-  const prompt = `You are ThermaMind AI, an expert data center optimization assistant. Analyze this REAL-TIME telemetry data and provide actionable insights.
+  // Find hottest and coldest clusters
+  const sortedByGpu = [...clusters].sort((a, b) => b.gpu - a.gpu);
+  const hottest = sortedByGpu[0];
+  const coldest = sortedByGpu[sortedByGpu.length - 1];
+  
+  // Node-level insights
+  const allNodes = nodes || [];
+  const onlineNodes = allNodes.filter(n => n.status !== 'offline');
+  const hotNodes = onlineNodes.filter(n => parseFloat(String(n.temperature)) > 28);
+  const overCooled = onlineNodes.filter(n => n.cooling > n.gpuLoad + 20);
 
-CURRENT CLUSTER STATUS:
-${clusters.map(c => `
-- ${c.name}: ${c.status.toUpperCase()}
-  • GPU Load: ${c.gpu}%
-  • Cooling: ${c.cooling}%
-  • Power: ${c.power}kW
-  • Efficiency: ${c.cooling - c.gpu > 15 ? '⚠️ OVER-COOLED by ' + (c.cooling - c.gpu) + '%' : c.gpu - c.cooling > 15 ? '⚠️ UNDER-COOLED by ' + (c.gpu - c.cooling) + '%' : '✓ Well matched'}
-`).join('')}
+  const prompt = `Analyze this REAL-TIME ArcticFlow datacenter telemetry and provide insights:
 
-OVERALL METRICS:
-• Energy Savings: ${stats.energySavings.toFixed(1)}% vs traditional cooling
-• Power Draw: ${stats.powerDrawMW.toFixed(2)} MW across 32 GPU nodes
-• Cooling Efficiency (PUE): ${stats.coolingPUE.toFixed(2)} (lower is better, ideal is 1.0)
-• CO₂ Offset: ${stats.co2OffsetKg} kg today
+CLUSTER STATUS (6 clusters × 48 nodes each = 288 GPUs):
+${clusters.map(c => `• ${c.name}: GPU ${c.gpu}% | Cooling ${c.cooling}% | Power ${c.power}kW | Status: ${c.status} | ${c.cooling - c.gpu > 15 ? '⚠️ Over-cooled by ' + (c.cooling - c.gpu) + '%' : '✓ Balanced'}`).join('\n')}
 
-YOUR TASK:
-1. Summarize current data center status in 2-3 sentences
-2. Identify the MOST CRITICAL efficiency issue (if any)
-3. Provide ONE specific, actionable recommendation with estimated energy/cost savings
+HOTTEST CLUSTER: ${hottest?.name} at ${hottest?.gpu}% GPU
+COLDEST CLUSTER: ${coldest?.name} at ${coldest?.gpu}% GPU
+HOT NODES (>28°C): ${hotNodes.length} of ${onlineNodes.length} online
+OVER-COOLED NODES (cooling > load+20%): ${overCooled.length}
 
-Keep response under 150 words. Be technical but clear. Focus on what matters most RIGHT NOW.`;
+FACILITY METRICS:
+• Energy Savings vs Baseline: ${stats.energySavings.toFixed(1)}%
+• Total Power Draw: ${stats.powerDrawMW.toFixed(3)} MW (IT + cooling)
+• Cooling PUE: ${stats.coolingPUE.toFixed(3)}
+• CO₂ Saved Today: ${stats.co2OffsetKg} kg
+
+TASKS:
+1. What's the most important thing happening right now? (1-2 sentences)
+2. Identify the biggest efficiency opportunity
+3. One specific recommendation with estimated impact`;
 
   try {
-    return await generateText(prompt);
+    return await generateText(prompt, SYSTEM_PROMPT);
   } catch (error) {
     console.error('Azure OpenAI error:', error);
     throw new Error('Failed to generate AI analysis');
@@ -159,22 +184,33 @@ export async function textToSpeech(text) {
  * @returns {Promise<string>} - AI response
  */
 export async function askQuestion(question, telemetrySnapshot) {
-  const { clusters, stats } = telemetrySnapshot;
+  const { clusters, stats, nodes } = telemetrySnapshot;
 
-  const prompt = `You are ThermaMind AI, an expert data center optimization assistant. Answer this question using the CURRENT real-time data:
+  const allNodes = nodes || [];
+  const onlineNodes = allNodes.filter(n => n.status !== 'offline');
+  const temps = onlineNodes.map(n => parseFloat(String(n.temperature)) || 0);
+  const maxTemp = temps.length > 0 ? Math.max(...temps).toFixed(1) : 'N/A';
+  const avgTemp = temps.length > 0 ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1) : 'N/A';
+
+  const prompt = `Answer this question using CURRENT real-time datacenter data:
 
 QUESTION: "${question}"
 
-CURRENT STATE:
-${clusters.map(c => `• ${c.name}: ${c.gpu}% GPU, ${c.cooling}% cooling, ${c.power}kW, ${c.status}`).join('\n')}
-• Total Power: ${stats.powerDrawMW.toFixed(2)} MW
-• Energy Savings: ${stats.energySavings.toFixed(1)}%
-• PUE: ${stats.coolingPUE.toFixed(2)}
+LIVE STATE (288 GPU nodes across 6 clusters):
+${clusters.map(c => `• ${c.name}: ${c.gpu}% GPU, ${c.cooling}% cooling, ${c.power}kW, status: ${c.status}`).join('\n')}
 
-Answer in 2-3 sentences. Be specific and reference actual cluster data. If the question can't be answered with current data, say so.`;
+FACILITY:
+• Total Power: ${stats.powerDrawMW.toFixed(3)} MW
+• Energy Savings vs Baseline: ${stats.energySavings.toFixed(1)}%
+• PUE: ${stats.coolingPUE.toFixed(3)}
+• CO₂ Saved/Day: ${stats.co2OffsetKg} kg
+• Avg Temperature: ${avgTemp}°C | Max: ${maxTemp}°C
+• Online Nodes: ${onlineNodes.length}/${allNodes.length}
+
+Be specific — reference actual cluster names and numbers. If the question relates to optimization, quantify the potential savings.`;
 
   try {
-    return await generateText(prompt);
+    return await generateText(prompt, SYSTEM_PROMPT);
   } catch (error) {
     console.error('Azure OpenAI error:', error);
     throw new Error('Failed to generate AI response');
