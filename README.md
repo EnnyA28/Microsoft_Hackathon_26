@@ -195,3 +195,12 @@ Microsoft operates 60+ datacenter regions. Multiply accordingly.
 ## 👥 Team
 
 Built during the Microsoft Hackathon 2026.
+
+| Name | |
+|---|---|
+| Ivy Enyenihi | |
+| John Adeyemo | |
+| Catherene Chimombo | |
+| Emmanuel Alonge | |
+| Enny Ademola | |
+| Trey De'De' | |
