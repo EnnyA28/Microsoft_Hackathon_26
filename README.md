@@ -85,11 +85,13 @@ ArcticFlow validates against **real Microsoft Azure VM CPU traces** (Azure Publi
 |---|---|
 | **3D Datacenter View** | Interactive Three.js visualization of 6 racks with Azure branding |
 | **Real-Time Telemetry** | Live GPU utilization, temperatures, power draw, PUE |
+| **2D Thermal Heatmap** | Rack-level temperature grid color-coded green→red |
+| **Optimization Panel** | Live AI recommendations (over-cooling, hotspots, consolidation) |
 | **Azure Trace Toggle** | Switch between synthetic and real Azure VM workload data |
-| **AI Assistant** | Azure OpenAI–powered chat for datacenter insights |
-| **Day/Night Theme** | Full light/dark mode with Azure color palette |
+| **AI Assistant** | Azure OpenAI–powered chat with formatted markdown responses |
+| **Day/Night Theme** | Full light/dark mode with Microsoft Azure color palette |
 | **Dynamic Energy Stats** | Savings %, CO₂ offset, PUE — all reactive to workload |
-| **GPU Fleet Status** | 6 clusters × 36 racks × 288 nodes with health indicators |
+| **GPU Fleet Status** | 6 clusters × 6 racks × 8 nodes (288 GPUs) with health indicators |
 
 ---
 
@@ -146,14 +148,14 @@ CI/CD: Both deploy automatically on push to `azure-ai-integration` via GitHub Ac
 ```
 ├── web/                     # React + Vite + Three.js frontend
 │   ├── src/App.tsx          # Main dashboard (charts, GPU grid, toggles)
-│   ├── src/components/      # DataCenter3D, AIAssistant, ClusterMap
+│   ├── src/components/      # DataCenter3D, AIAssistant, ThermalHeatmap, OptimizationPanel
 │   └── src/hooks/           # useTelemetry WebSocket hook
 ├── mock-backend/            # Node.js simulation backend
 │   ├── src/server.js        # Express + WebSocket server
 │   ├── src/simulator.js     # 288-node telemetry generator + Azure trace replay
 │   ├── src/webSocket.js     # Telemetry broadcast + energy/PUE calculations
-│   └── src/aiAssistant.js   # Azure OpenAI integration
-├── data/                    # Azure VM CPU trace dataset
+│   └── src/aiAssistant.js   # Azure OpenAI integration + ArcticFlow persona
+├── data/                    # Azure VM CPU trace dataset (1,440 readings)
 ├── model.py                 # Physics engine (COP, PUE, thermal model)
 ├── workload.py              # Workload generator (synthetic + Azure trace)
 ├── env.py                   # Gymnasium environment (DCTwinEnv)
@@ -182,25 +184,33 @@ Microsoft operates 60+ datacenter regions. Multiply accordingly.
 
 ## 🛠️ Tech Stack
 
-**Frontend:** React, TypeScript, Vite, Tailwind CSS, Three.js (react-three-fiber), Chart.js, Plotly
+**Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Three.js (react-three-fiber), Chart.js
 
 **Backend:** Node.js, Express, WebSocket (ws), Azure OpenAI SDK, Azure Speech SDK
 
-**AI/ML:** Python, Gymnasium, Stable-Baselines3 (PPO), NumPy
+**AI/ML:** Python 3.10+, Gymnasium, Stable-Baselines3 (PPO), NumPy
 
-**Cloud:** Azure Static Web Apps, Azure App Service, Azure OpenAI, GitHub Actions CI/CD
+**Cloud:** Azure Static Web Apps, Azure App Service, Azure OpenAI (GPT-4o-mini), GitHub Actions CI/CD
+
+**Data:** Microsoft Azure Public VM Trace Dataset V2 (real-world CPU utilization)
 
 ---
 
 ## 👥 Team
 
-Built during the Microsoft Hackathon 2026.
+Built during the **Microsoft Hackathon 2025** 🏆
 
-| Name | |
+| Name | Role |
 |---|---|
-| Ivy Enyenihi | |
-| John Adeyemo | |
-| Catherene Chimombo | |
-| Emmanuel Alonge | |
-| Enny Ademola | |
-| Trey De'De' | |
+| Ivy Enyenihi | Team Lead |
+| John Adeyemo | Full-Stack & AI Integration |
+| Catherene Chimombo | Frontend & UX |
+| Emmanuel Alonge | Backend & Simulation |
+| Enny Ademola | Cloud & Deployment |
+| Trey De'De' | Data & Research |
+
+---
+
+## 📜 License
+
+MIT — Built for the Microsoft Hackathon 2025.
