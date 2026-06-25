@@ -1,5 +1,64 @@
 // src/simulator.js
 import { getClusterState } from "./stateMachine.js";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
+
+// ─── Workload Source ───────────────────────────────────────────────────────────
+// "synthetic" = random with bias/spikes (default)
+// "azure"     = replay real Azure VM CPU trace data
+let workloadSource = "synthetic";
+let azureTrace = [];   // normalized 0-100 CPU utilization values
+let azureIndex = 0;    // current position in the trace
+
+// Load Azure trace CSV (single column of CPU % values, no header)
+try {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const tracePath = resolve(__dirname, "../../data/azure_vm_cpu.csv");
+  const raw = readFileSync(tracePath, "utf-8");
+  azureTrace = raw.split("\n").filter(l => l.trim()).map(Number).filter(n => !isNaN(n));
+  console.log(`📊 Azure trace loaded: ${azureTrace.length} readings`);
+} catch (e) {
+  console.warn("⚠️  Azure trace not found at data/azure_vm_cpu.csv — azure mode will fall back to synthetic");
+}
+
+export function setWorkloadSource(source) {
+  if (source === "azure" || source === "synthetic") {
+    workloadSource = source;
+    azureIndex = 0; // reset replay position on switch
+    console.log(`🔄 Workload source → ${source}`);
+  }
+}
+
+export function getWorkloadSource() {
+  return workloadSource;
+}
+
+// Get next GPU load from Azure trace (per-node, wraps around)
+// Real Azure VMs average ~10% CPU — we scale up to datacenter GPU range
+// while preserving the real-world spiky pattern (idle→burst transitions)
+// Uses ONE trace value per time step as the base load for all nodes,
+// with per-node jitter so individual nodes vary but the overall trend moves.
+let azureStepBase = null; // cached base for current tick
+let azureStepId = -1;     // which tick we're on
+
+function beginAzureStep() {
+  // Call once per telemetry tick to advance the trace by one reading
+  if (azureTrace.length === 0) return;
+  azureStepId++;
+  const raw = azureTrace[azureIndex % azureTrace.length]; // 0-100
+  azureIndex++;
+  // Scale: shift baseline to ~40% and amplify so spikes hit 85-95%
+  azureStepBase = 25 + raw * 0.70;
+}
+
+function getAzureGpuLoad(clusterBias) {
+  if (azureStepBase === null) return null;
+  // Per-node jitter ±12% around the shared base + cluster personality
+  const jitter = (Math.random() - 0.5) * 24;
+  const val = azureStepBase + clusterBias * 0.4 + jitter;
+  return Math.min(100, Math.max(0, val));
+}
 
 // 🧊 Cooling state tracker (simulates physical cooling system lag)
 const coolingState = {
@@ -75,7 +134,14 @@ function generateCluster(clusterName, clusterIndex) {
     const nodeLabel = `${profile.name}${rackIndex + 1}-${slotIndex + 1}`; // e.g., A1-1, A1-2, ..., A6-8
     
     // Apply spike multiplier to affected clusters only
-    const rawGpu = 50 + profile.gpuBias + (Math.random() * 30 - 15);
+    let rawGpu;
+    if (workloadSource === "azure" && azureStepBase !== null) {
+      // Use real Azure VM CPU trace — one reading per tick, per-node jitter
+      rawGpu = getAzureGpuLoad(profile.gpuBias);
+    } else {
+      // Synthetic: random with bias
+      rawGpu = 50 + profile.gpuBias + (Math.random() * 30 - 15);
+    }
     const adjustedGpu = isAffected ? rawGpu * loadMultiplier : rawGpu;
     const gpuLoad = Math.min(100, Math.max(0, Math.floor(adjustedGpu)));
     
@@ -169,6 +235,10 @@ function generateCluster(clusterName, clusterIndex) {
 
 // 🧩 Generates telemetry for 6 clusters (288 total GPU nodes: 6 clusters × 6 racks × 8 nodes)
 export function generateTelemetry() {
+  // Advance Azure trace by one step so all nodes in this tick share the same base load
+  if (workloadSource === "azure") {
+    beginAzureStep();
+  }
   const clusters = [];
   for (let i = 0; i < 6; i++) {
     clusters.push(generateCluster(['A', 'B', 'C', 'D', 'E', 'F'][i], i));

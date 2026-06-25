@@ -48,7 +48,7 @@ type ClusterData = {
   site?: string;
 };
 
-function Header({ connectionStatus, darkMode, onToggleTheme }: { connectionStatus: string; darkMode: boolean; onToggleTheme: () => void }) {
+function Header({ connectionStatus, darkMode, onToggleTheme, workloadSource, onToggleWorkload }: { connectionStatus: string; darkMode: boolean; onToggleTheme: () => void; workloadSource: string; onToggleWorkload: () => void }) {
   const statusColors = {
     connected: 'bg-emerald-400',
     connecting: 'bg-amber-400',
@@ -68,6 +68,18 @@ function Header({ connectionStatus, darkMode, onToggleTheme }: { connectionStatu
           <span>❄️</span> ArcticFlow
         </div>
         <div className="flex items-center gap-4">
+          {/* Workload source toggle */}
+          <button
+            onClick={onToggleWorkload}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-300 ${
+              workloadSource === 'azure'
+                ? 'bg-[#0078D4]/20 border-[#0078D4] text-[#50E6FF]'
+                : 'bg-[var(--tm-surface)] border-[var(--tm-border)] tm-text-muted hover:border-[var(--tm-border-hover)]'
+            }`}
+            title={workloadSource === 'azure' ? 'Using real Azure VM trace data' : 'Using synthetic workload'}
+          >
+            {workloadSource === 'azure' ? '📈 Azure Trace' : '🔄 Synthetic'}
+          </button>
           <button
             onClick={onToggleTheme}
             className="p-2 rounded-full border border-[var(--tm-border)] hover:border-[var(--tm-border-hover)] transition-all duration-300 text-xl"
@@ -97,32 +109,32 @@ function HeroStats({ stats }: { stats: { energySavings: number; co2OffsetKg: num
   return (
     <section className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 mb-6">
       <div className={card}>
-        <div className="uppercase tracking-wider text-slate-400 text-xs">Energy Savings</div>
+        <div className="uppercase tracking-wider tm-text-muted text-xs">Energy Savings</div>
         <div className="text-4xl font-bold bg-gradient-to-br from-sky-400 to-blue-500 bg-clip-text text-transparent">
           {energySavings.toFixed(1)}%
         </div>
-        <div className="text-slate-400 text-xs mt-2">vs traditional cooling</div>
+        <div className="tm-text-muted text-xs mt-2">vs traditional cooling</div>
       </div>
       <div className={card}>
-        <div className="uppercase tracking-wider text-slate-400 text-xs">CO₂ Offset Today</div>
+        <div className="uppercase tracking-wider tm-text-muted text-xs">CO₂ Saved / Day</div>
         <div className="text-4xl font-bold text-green-400">
           {co2Offset}<span className="text-lg"> kg</span>
         </div>
-        <div className="text-slate-400 text-xs mt-2">≈ {Math.round(co2Offset / 22)} trees planted</div>
+        <div className="tm-text-muted text-xs mt-2">≈ {Math.max(1, Math.round(co2Offset / 22))} trees · {Math.round(co2Offset * 365 / 1000)} tonnes/yr</div>
       </div>
       <div className={card}>
-        <div className="uppercase tracking-wider text-slate-400 text-xs">Current Power Draw</div>
+        <div className="uppercase tracking-wider tm-text-muted text-xs">Current Power Draw</div>
         <div className="text-4xl font-bold text-blue-400">
           {powerDraw.toFixed(2)}<span className="text-lg"> MW</span>
         </div>
-        <div className="text-slate-400 text-xs mt-2">Global operations</div>
+        <div className="tm-text-muted text-xs mt-2">IT + cooling (288 nodes)</div>
       </div>
       <div className={card}>
-        <div className="uppercase tracking-wider text-slate-400 text-xs">Cooling Efficiency (PUE)</div>
+        <div className="uppercase tracking-wider tm-text-muted text-xs">Cooling Efficiency (PUE)</div>
         <div className="text-4xl font-bold text-yellow-400">
           {coolingPUE.toFixed(2)}
         </div>
-        <div className="text-slate-400 text-xs mt-2">
+        <div className="tm-text-muted text-xs mt-2">
           {pueInBand ? (
             <span className="text-green-400">✓ within published 1.1–1.6 band</span>
           ) : (
@@ -186,71 +198,98 @@ function GPUGrid({ nodes }: { nodes: { id: number; label: string; clusterName: s
       else if (n.state === 'hot') hot++;
       else if (n.state === 'idle') idle++;
     });
-    return { active, hot, idle };
+    return { active, hot, idle, total: nodes.length };
   }, [nodes]);
 
-  // Group nodes by cluster
-  const groupedNodes = useMemo(() => {
+  // Group nodes by cluster and compute per-cluster stats
+  const clusterStats = useMemo(() => {
     const groups: { [key: string]: typeof nodes } = {};
     nodes.forEach(n => {
       if (!groups[n.clusterName]) groups[n.clusterName] = [];
       groups[n.clusterName].push(n);
     });
-    return groups;
+
+    return Object.keys(groups).sort().map(name => {
+      const clusterNodes = groups[name];
+      const active = clusterNodes.filter(n => n.state === 'active').length;
+      const hot = clusterNodes.filter(n => n.state === 'hot').length;
+      const idle = clusterNodes.filter(n => n.state === 'idle').length;
+      const offline = clusterNodes.filter(n => n.status === 'offline').length;
+      const avgGpu = Math.round(clusterNodes.reduce((s, n) => s + n.gpuLoad, 0) / clusterNodes.length);
+      const maxTemp = Math.max(...clusterNodes.map(n => parseFloat(n.temperature) || 0));
+      const totalNodes = clusterNodes.length;
+
+      return { name, totalNodes, active, hot, idle, offline, avgGpu, maxTemp };
+    });
   }, [nodes]);
-
-  // Get unique cluster names sorted alphabetically
-  const clusterNames = useMemo(() => {
-    return Object.keys(groupedNodes).sort();
-  }, [groupedNodes]);
-
-  // Calculate dynamic grid columns based on cluster count
-  const gridColsClass = useMemo(() => {
-    const count = clusterNames.length;
-    if (count <= 3) return 'grid-cols-3';
-    if (count <= 6) return 'grid-cols-3';
-    return 'grid-cols-3'; // fallback: 3 cols
-  }, [clusterNames.length]);
 
   return (
     <div className="mt-6">
-      {/* Grid with visual cluster grouping */}
-      <div className={`grid ${gridColsClass} gap-3`}>
-        {clusterNames.map(clusterName => (
-          <div key={clusterName} className="space-y-2">
-            <div className="text-xs font-semibold text-[#50E6FF] text-center">Cluster {clusterName}</div>
-            <div className="grid grid-cols-8 gap-1 p-2 bg-slate-900/30 rounded-lg border border-[#0078D4]/30">
-              {(groupedNodes[clusterName] || []).map(n => {
-                // Build contextual tooltip based on status
-                let statusText = '';
-                if (n.status === 'offline') {
-                  statusText = '🔴 OFFLINE - Node down';
-                } else if (n.state === 'hot') {
-                  statusText = `🔥 HEAVY LOAD\nGPU: ${n.gpuLoad}% • Temp: ${n.temperature}°C\nHigh workload - cooling at max`;
-                } else if (n.state === 'active') {
-                  statusText = `✅ ACTIVE\nGPU: ${n.gpuLoad}% • Temp: ${n.temperature}°C\nProcessing tasks normally`;
-                } else {
-                  statusText = `💤 IDLE\nGPU: ${n.gpuLoad}% • Temp: ${n.temperature}°C\nMinimal workload - low power`;
-                }
-                
-                return (
-                  <div 
-                    key={n.id} 
-                    className={`gpu-node ${n.state === 'idle' ? 'gpu-idle' : n.state === 'hot' ? 'gpu-hot' : 'gpu-active'}`} 
-                    data-label={n.label}
-                    title={`Cluster ${n.clusterName} - Node ${n.label}\n${statusText}`}
-                  />
-                );
-              })}
+      {/* Cluster summary cards — compact rack-level view */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+        {clusterStats.map(cluster => {
+          const hotPct = (cluster.hot / cluster.totalNodes) * 100;
+          const activePct = (cluster.active / cluster.totalNodes) * 100;
+          const idlePct = (cluster.idle / cluster.totalNodes) * 100;
+          
+          // Overall health indicator
+          const health = cluster.hot > cluster.totalNodes * 0.5 ? 'critical' 
+            : cluster.hot > cluster.totalNodes * 0.25 ? 'warning' : 'healthy';
+          const healthBorder = health === 'critical' ? 'border-red-500/60' 
+            : health === 'warning' ? 'border-yellow-500/60' : '';
+
+          return (
+            <div key={cluster.name} className={`tm-card ${healthBorder}`}>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold tm-text-primary">Cluster {cluster.name}</span>
+                  <span className="text-[10px] tm-text-muted">{cluster.totalNodes} nodes · 6 racks</span>
+                </div>
+                <span className="text-xs font-semibold" style={{ color: health === 'critical' ? '#ef4444' : health === 'warning' ? '#eab308' : '#0078D4' }}>
+                  {cluster.avgGpu}% avg
+                </span>
+              </div>
+
+              {/* Stacked utilization bar */}
+              <div className="h-3 rounded-full overflow-hidden flex tm-bar-bg mb-2">
+                <div className="h-full bg-red-500 transition-all duration-500" style={{ width: `${hotPct}%` }} title={`Hot: ${cluster.hot}`} />
+                <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${activePct}%` }} title={`Active: ${cluster.active}`} />
+                <div className="h-full bg-slate-400 transition-all duration-500" style={{ width: `${idlePct}%` }} title={`Idle: ${cluster.idle}`} />
+              </div>
+
+              {/* Mini stats row */}
+              <div className="flex items-center justify-between text-[11px]">
+                <div className="flex gap-3">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">{cluster.active} active</span>
+                  <span className="text-red-600 dark:text-red-400 font-medium">{cluster.hot} hot</span>
+                  <span className="tm-text-muted">{cluster.idle} idle</span>
+                </div>
+                {cluster.offline > 0 && (
+                  <span className="text-red-500 font-medium">{cluster.offline} offline</span>
+                )}
+              </div>
+
+              {/* Max temp indicator */}
+              <div className="mt-1.5 text-[10px] tm-text-muted">
+                Peak temp: <span className={cluster.maxTemp > 35 ? 'text-red-500 font-semibold' : 'tm-text-detail'}>{cluster.maxTemp.toFixed(1)}°C</span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      
-      <div className="flex gap-6 justify-center mt-4 flex-wrap text-sm">
-        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" /> Active: 30-75% Load (<span id="activeCount">{counts.active}</span>)</div>
-        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-red-500 inline-block" /> Hot: &gt;75% Load (<span id="hotCount">{counts.hot}</span>)</div>
-        <div className="flex items-center gap-2"><span className="w-3 h-3 rounded-sm bg-slate-500 inline-block" /> Idle: &lt;30% Load or Offline (<span id="idleCount">{counts.idle}</span>)</div>
+
+      {/* Overall fleet legend */}
+      <div className="flex gap-6 justify-center mt-4 flex-wrap text-sm tm-text-muted">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" /> Active: {counts.active}/{counts.total}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-sm bg-red-500 inline-block" /> Hot: {counts.hot}/{counts.total}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-sm bg-slate-400 inline-block" /> Idle: {counts.idle}/{counts.total}
+        </div>
       </div>
     </div>
   );
@@ -316,7 +355,7 @@ function ClusterList({ clusters, onClusterClick }: { clusters: Cluster[]; onClus
         } else {
           // idle
           statusInfo = {
-            color: 'bg-slate-400/20 text-slate-400',
+            color: 'bg-slate-400/20 tm-text-muted',
             detail: `Minimal workload - conserving energy`,
             icon: '💤',
             label: 'IDLE'
@@ -326,7 +365,7 @@ function ClusterList({ clusters, onClusterClick }: { clusters: Cluster[]; onClus
         return (
           <div 
             key={cluster.name} 
-            className="bg-slate-900/50 rounded-lg border-l-4 border-[#0078D4] p-4 hover:bg-slate-900/70 transition cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+            className="tm-cluster-item cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
             onClick={() => onClusterClick(cluster)}
             title="Click to view in 3D"
           >
@@ -334,9 +373,9 @@ function ClusterList({ clusters, onClusterClick }: { clusters: Cluster[]; onClus
               <div className="flex-1">
                 <div className="font-semibold text-base flex items-center gap-2">
                   {displayName}
-                  <span className="text-xs text-[#50E6FF]/60">🎯 View 3D</span>
+                  <span className="text-xs tm-text-primary opacity-60">🎯 View 3D</span>
                 </div>
-                <div className="text-xs text-[#50E6FF] mt-0.5">{statusInfo.detail}</div>
+                <div className="text-xs tm-text-primary mt-0.5">{statusInfo.detail}</div>
               </div>
               <div className={`px-2 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${statusInfo.color}`}>
                 {statusInfo.icon} {statusInfo.label}
@@ -344,19 +383,19 @@ function ClusterList({ clusters, onClusterClick }: { clusters: Cluster[]; onClus
             </div>
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
-                <div className="text-slate-400 text-xs mb-1">Avg GPU</div>
+                <div className="tm-text-muted text-xs mb-1">Avg GPU</div>
                 <div className="font-semibold text-lg">{gpuLoad}%</div>
               </div>
               <div>
-                <div className="text-slate-400 text-xs mb-1">Avg Cooling</div>
+                <div className="tm-text-muted text-xs mb-1">Avg Cooling</div>
                 <div className="font-semibold text-lg">{cooling}%</div>
               </div>
               <div>
-                <div className="text-slate-400 text-xs mb-1">Total Power</div>
-                <div className="font-semibold text-lg">{cluster.power}<span className="text-xs text-slate-400">kW</span></div>
+                <div className="tm-text-muted text-xs mb-1">Total Power</div>
+                <div className="font-semibold text-lg">{cluster.power}<span className="text-xs tm-text-muted">kW</span></div>
               </div>
             </div>
-            <div className="mt-3 h-1.5 bg-white/10 rounded overflow-hidden">
+            <div className="mt-3 h-1.5 tm-progress-bg rounded overflow-hidden">
               <div className="h-full bg-gradient-to-r from-[#0078D4] to-[#50E6FF] rounded transition-all duration-500" style={{ width: `${gpuLoad}%` }} />
             </div>
           </div>
@@ -388,6 +427,15 @@ function App() {
   }, [darkMode]);
 
   const toggleTheme = () => setDarkMode(prev => !prev);
+
+  // Workload source toggle
+  const workloadSource = telemetry?.workloadSource || 'synthetic';
+  const toggleWorkloadSource = () => {
+    const newSource = workloadSource === 'synthetic' ? 'azure' : 'synthetic';
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'set-workload-source', source: newSource }));
+    }
+  };
 
   const { data, options } = useChartData(telemetry?.chart, darkMode);
 
@@ -444,7 +492,7 @@ function App() {
 
   return (
     <div className="min-h-dvh">
-      <Header connectionStatus={status} darkMode={darkMode} onToggleTheme={toggleTheme} />
+      <Header connectionStatus={status} darkMode={darkMode} onToggleTheme={toggleTheme} workloadSource={workloadSource} onToggleWorkload={toggleWorkloadSource} />
       <main className="max-w-[1600px] mx-auto p-6">
         <HeroStats stats={telemetry?.stats || null} />
 
@@ -452,7 +500,16 @@ function App() {
         <section className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 mb-6">
           <div className="tm-panel">
             <div className="tm-divider">
-              <div className="text-lg font-semibold">📊 Real-Time Energy &amp; Workload</div>
+              <div className="text-lg font-semibold flex items-center gap-2">
+                📊 Real-Time Energy &amp; Workload
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  workloadSource === 'azure'
+                    ? 'bg-[#0078D4]/20 text-[#50E6FF] border border-[#0078D4]/40'
+                    : 'bg-slate-500/20 tm-text-muted border border-slate-500/30'
+                }`}>
+                  {workloadSource === 'azure' ? '🔵 Azure VM Trace' : '⚪ Synthetic'}
+                </span>
+              </div>
             </div>
             <div className="relative h-[300px]">
               <Line data={data} options={options} />
@@ -460,32 +517,20 @@ function App() {
             <div className="mt-6 pt-6 border-t border-[#0078D4]/30 mb-14">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold">
-                  🖥️ GPU Cluster Status ({telemetry?.nodes?.length || 0} Nodes)
+                    🖥️ GPU Fleet Status — 6 Clusters · 36 Racks · {telemetry?.nodes?.length || 0} Nodes
                 </h3>
               </div>
               <GPUGrid nodes={telemetry?.nodes || []} />
             </div>
           </div>
           <div className="tm-panel">
-            <div className="tm-divider flex items-center justify-between">
+            <div className="tm-divider">
               <div className="text-lg font-semibold flex items-center gap-2">
                 🖥️ GPU Clusters
               </div>
-              <button
-                onClick={() => setShowMap(!showMap)}
-                className="text-[#50E6FF] hover:text-[#0078D4] text-sm font-medium transition"
-              >
-                {showMap ? '📊 View List' : '🌎 View Map'} ↗
-              </button>
             </div>
             
-            {showMap ? (
-              <div className="flex-1 overflow-hidden">
-                <ClusterMap clusters={(telemetry?.clusters || []) as any} />
-              </div>
-            ) : (
-              <ClusterList clusters={telemetry?.clusters || []} onClusterClick={handleClusterClick} />
-            )}
+            <ClusterList clusters={telemetry?.clusters || []} onClusterClick={handleClusterClick} />
           </div>
         </section>
       </main>

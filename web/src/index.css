@@ -207,3 +207,52 @@ body { color:var(--tm-text); -webkit-font-smoothing:antialiased; background: lin
 :root.light .message-ai { background: rgba(0,120,212,.06); }
 :root.light .message-action { background: rgba(216,59,1,.06); }
 
+/* Theme-aware card surfaces for GPU Fleet and Cluster panels */
+.tm-card {
+  background: rgba(15,23,42,.3);
+  border: 1px solid rgba(0,120,212,.2);
+  border-radius: .5rem;
+  padding: .75rem;
+  transition: background .3s, border-color .3s;
+}
+:root.light .tm-card {
+  background: rgba(255,255,255,.7);
+  border-color: rgba(0,120,212,.15);
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+.tm-cluster-item {
+  background: rgba(15,23,42,.4);
+  border-left: 4px solid #0078D4;
+  border-radius: .5rem;
+  padding: 1rem;
+  transition: background .3s, box-shadow .3s;
+}
+.tm-cluster-item:hover {
+  background: rgba(15,23,42,.6);
+}
+:root.light .tm-cluster-item {
+  background: rgba(255,255,255,.8);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+:root.light .tm-cluster-item:hover {
+  background: rgba(255,255,255,.95);
+  box-shadow: 0 2px 8px rgba(0,120,212,.12);
+}
+
+/* Theme-aware text colors */
+.tm-text-primary { color: #50E6FF; }
+.tm-text-muted { color: #8b95a5; }
+.tm-text-detail { color: #64748b; }
+:root.light .tm-text-primary { color: #0078D4; }
+:root.light .tm-text-muted { color: #505050; }
+:root.light .tm-text-detail { color: #6b7280; }
+
+/* Utilization bar background */
+.tm-bar-bg { background: rgba(255,255,255,.05); }
+:root.light .tm-bar-bg { background: rgba(0,0,0,.06); }
+
+/* Progress bar in cluster list */
+.tm-progress-bg { background: rgba(255,255,255,.1); }
+:root.light .tm-progress-bg { background: rgba(0,0,0,.08); }
+
