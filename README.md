@@ -169,16 +169,28 @@ CI/CD: Both deploy automatically on push to `azure-ai-integration` via GitHub Ac
 
 ## 💡 Impact at Scale
 
-At a **1 MW datacenter** (small by hyperscale standards):
+### Validated Results (PPO Training — 200K steps)
+
+| Metric | Baseline (Fixed 20°C) | ArcticFlow AI |
+|---|---|---|
+| Cooling energy | 12.92 kWh | 11.49 kWh |
+| **Energy saved** | — | **11.07%** ✅ (target ≥10%) |
+| PUE | 1.244 | **1.217** |
+| Thermal violations | 0 | **0** ✅ |
+| SLA violations | 0 | **0** ✅ |
+
+> The AI reward improved from -50,780 → -1,571 over training, demonstrating clear learning convergence.
+
+### Extrapolated to a 1 MW Datacenter (per year)
 
 | Metric | Value |
 |---|---|
-| Energy saved | ~100 kW continuously |
-| Annual savings | **876,000 kWh / $87,000** |
-| CO₂ avoided | **244 tonnes/year** |
-| Equivalent | 🌳 11,000 trees planted |
+| Energy saved | **236,572 kWh** |
+| Cost savings | **$28,389** |
+| CO₂ avoided | **94.6 tonnes** |
+| Equivalent | 🌳 ~4,300 trees planted |
 
-Microsoft operates 60+ datacenter regions. Multiply accordingly.
+Microsoft operates 60+ datacenter regions. At full fleet scale, this approach could save **millions in energy costs** and **thousands of tonnes of CO₂** annually.
 
 ---
 
