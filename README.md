@@ -198,19 +198,19 @@ Microsoft operates 60+ datacenter regions. Multiply accordingly.
 
 ## 👥 Team
 
-Built during the **Microsoft Hackathon 2025** 🏆
+Built during the **Microsoft Intern Hackathon 2026** 🏆
 
 | Name | Role |
 |---|---|
 | Ivy Enyenihi | Team Lead |
 | John Adeyemo | Full-Stack & AI Integration |
-| Catherene Chimombo | Frontend & UX |
+| Catherene Chimombo | Product Marketing |
 | Emmanuel Alonge | Backend & Simulation |
 | Enny Ademola | Cloud & Deployment |
-| Trey De'De' | Data & Research |
+| Trey De'De' | Frontend & UX |
 
 ---
 
 ## 📜 License
 
-MIT — Built for the Microsoft Hackathon 2025.
+MIT — Built for the Microsoft Intern Hackathon 2026.
