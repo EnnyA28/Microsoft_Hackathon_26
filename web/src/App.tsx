@@ -13,6 +13,8 @@ import {
 import { useTelemetry } from './hooks/useTelemetry';
 import { AIAssistant } from './components/AIAssistant';
 import { DataCenter3D } from './components/DataCenter3D';
+import { ThermalHeatmap } from './components/ThermalHeatmap';
+import { OptimizationPanel } from './components/OptimizationPanel';
 
 ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler);
 
@@ -478,7 +480,8 @@ function App() {
     setSelected3DClusterName(cluster.name);
   };
 
-  // Map view state
+  // Cluster view mode (list vs thermal heatmap)
+  const [clusterView, setClusterView] = useState<'list' | 'heatmap'>('list');
 
   // Build live cluster data whenever telemetry updates
   const liveClusterData = selected3DClusterName ? buildClusterData(selected3DClusterName) : null;
@@ -522,15 +525,37 @@ function App() {
             </div>
           </div>
           <div className="tm-panel">
-            <div className="tm-divider">
+            <div className="tm-divider flex items-center justify-between">
               <div className="text-lg font-semibold flex items-center gap-2">
                 🖥️ GPU Clusters
               </div>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setClusterView('list')}
+                  className={`text-xs px-2 py-1 rounded transition ${clusterView === 'list' ? 'bg-[#0078D4]/20 text-[#50E6FF]' : 'tm-text-muted hover:text-[#50E6FF]'}`}
+                >
+                  📋 List
+                </button>
+                <button
+                  onClick={() => setClusterView('heatmap')}
+                  className={`text-xs px-2 py-1 rounded transition ${clusterView === 'heatmap' ? 'bg-[#0078D4]/20 text-[#50E6FF]' : 'tm-text-muted hover:text-[#50E6FF]'}`}
+                  title="2D Thermal Heatmap — lighter on bandwidth"
+                >
+                  🌡️ Thermal
+                </button>
+              </div>
             </div>
             
-            <ClusterList clusters={telemetry?.clusters || []} onClusterClick={handleClusterClick} />
+            {clusterView === 'heatmap' ? (
+              <ThermalHeatmap nodes={telemetry?.nodes || []} clusters={telemetry?.clusters || []} />
+            ) : (
+              <ClusterList clusters={telemetry?.clusters || []} onClusterClick={handleClusterClick} />
+            )}
           </div>
         </section>
+
+        {/* Optimization Recommendations */}
+        <OptimizationPanel stats={telemetry?.stats || null} nodes={telemetry?.nodes || []} />
       </main>
       
       {/* AI Assistant */}
