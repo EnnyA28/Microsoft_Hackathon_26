@@ -1,5 +1,5 @@
 <p align="center">
-  <strong>❄️ ArcticFlow</strong><br/>
+  <strong>❄️ ArcticFlow</strong> <a href="https://icy-coast-05e96330f.7.azurestaticapps.net" target="_blank">↗ Live Demo</a><br/>
   <em>AI-Powered Datacenter Cooling Optimization</em>
 </p>
 
