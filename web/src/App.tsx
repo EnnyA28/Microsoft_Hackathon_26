@@ -118,26 +118,26 @@ function HeroStats({ stats }: { stats: { energySavings: number; co2OffsetKg: num
       </div>
       <div className={card}>
         <div className="uppercase tracking-wider tm-text-muted text-xs">CO₂ Saved / Day</div>
-        <div className="text-4xl font-bold text-green-400">
+        <div className="text-4xl font-bold text-green-600 dark:text-green-400">
           {co2Offset}<span className="text-lg"> kg</span>
         </div>
         <div className="tm-text-muted text-xs mt-2">≈ {Math.max(1, Math.round(co2Offset / 22))} trees · {Math.round(co2Offset * 365 / 1000)} tonnes/yr</div>
       </div>
       <div className={card}>
         <div className="uppercase tracking-wider tm-text-muted text-xs">Current Power Draw</div>
-        <div className="text-4xl font-bold text-blue-400">
+        <div className="text-4xl font-bold text-blue-600 dark:text-blue-400">
           {powerDraw.toFixed(2)}<span className="text-lg"> MW</span>
         </div>
         <div className="tm-text-muted text-xs mt-2">IT + cooling (288 nodes)</div>
       </div>
       <div className={card}>
         <div className="uppercase tracking-wider tm-text-muted text-xs">Cooling Efficiency (PUE)</div>
-        <div className="text-4xl font-bold text-yellow-400">
+        <div className="text-4xl font-bold text-yellow-600 dark:text-yellow-400">
           {coolingPUE.toFixed(2)}
         </div>
         <div className="tm-text-muted text-xs mt-2">
           {pueInBand ? (
-            <span className="text-green-400">✓ within published 1.1–1.6 band</span>
+            <span className="text-green-600 dark:text-green-400">✓ within published 1.1–1.6 band</span>
           ) : (
             'Lower is better (ideal: 1.0)'
           )}
@@ -317,14 +317,14 @@ function ClusterList({ clusters, onClusterClick }: { clusters: Cluster[]; onClus
         if (cluster.status === 'active') {
           if (gpuLoad > 70) {
             statusInfo = {
-              color: 'bg-emerald-400/20 text-emerald-300',
+              color: 'bg-emerald-400/20 text-emerald-700 dark:text-emerald-300',
               detail: `Processing AI tasks at ${gpuLoad}% capacity`,
               icon: '🔥',
               label: 'ACTIVE'
             };
           } else {
             statusInfo = {
-              color: 'bg-emerald-400/20 text-emerald-300',
+              color: 'bg-emerald-400/20 text-emerald-700 dark:text-emerald-300',
               detail: `Load ${gpuLoad}% ↔ Cooling ${cooling}% (Well matched)`,
               icon: '✅',
               label: 'ACTIVE'
@@ -333,21 +333,21 @@ function ClusterList({ clusters, onClusterClick }: { clusters: Cluster[]; onClus
         } else if (cluster.status === 'optimizing') {
           if (coolingDiff > 15) {
             statusInfo = {
-              color: 'bg-cyan-400/20 text-cyan-300',
+              color: 'bg-cyan-400/20 text-cyan-700 dark:text-cyan-300',
               detail: `AI reducing cooling: ${cooling}% → ${gpuLoad}% (Save ${Math.abs(coolingDiff)}%)`,
               icon: '⚙️',
               label: 'OPTIMIZING'
             };
           } else if (coolingDiff < -15) {
             statusInfo = {
-              color: 'bg-amber-400/20 text-amber-300',
+              color: 'bg-amber-400/20 text-amber-700 dark:text-amber-300',
               detail: `AI increasing cooling: ${cooling}% → ${gpuLoad}% (+${Math.abs(coolingDiff)}%)`,
               icon: '🌡️',
               label: 'OPTIMIZING'
             };
           } else {
             statusInfo = {
-              color: 'bg-cyan-400/20 text-cyan-300',
+              color: 'bg-cyan-400/20 text-cyan-700 dark:text-cyan-300',
               detail: `Fine-tuning to match ${gpuLoad}% workload`,
               icon: '⚙️',
               label: 'OPTIMIZING'

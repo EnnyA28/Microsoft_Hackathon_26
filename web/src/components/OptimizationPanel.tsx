@@ -27,16 +27,16 @@ type Recommendation = {
 };
 
 const CATEGORY_COLOR: Record<string, string> = {
-  Cooling: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30',
-  Workload: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
-  Power: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-  Controls: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30',
-  Renewable: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  Cooling: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30',
+  Workload: 'bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30',
+  Power: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
+  Controls: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-500/30',
+  Renewable: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
 };
 
 const PRIORITY_COLOR: Record<string, string> = {
-  High: 'bg-emerald-500/20 text-emerald-400',
-  Medium: 'bg-amber-500/20 text-amber-400',
+  High: 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400',
+  Medium: 'bg-amber-500/20 text-amber-700 dark:text-amber-400',
   Low: 'bg-slate-600/30 tm-text-muted',
 };
 
@@ -143,25 +143,25 @@ export function OptimizationPanel({ stats, nodes }: Props) {
       <div className="rounded-xl border border-[#0078D4]/30 bg-gradient-to-br from-[#0078D4]/10 to-[#50E6FF]/5 p-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-lg font-semibold tm-text-primary">⚡ AI Optimization Insights</h2>
-          <span className="text-[10px] px-2 py-1 rounded-full bg-[#0078D4]/20 text-[#50E6FF]">
+          <span className="text-[10px] px-2 py-1 rounded-full bg-[#0078D4]/20 text-[#0078D4]">
             Live · {recommendations.length} recommendations
           </span>
         </div>
         <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
-            <div className="text-2xl font-bold text-emerald-400">{stats.energySavings.toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.energySavings.toFixed(1)}%</div>
             <div className="text-[10px] tm-text-muted">Energy saved vs baseline</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-cyan-400">{stats.coolingPUE.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{stats.coolingPUE.toFixed(2)}</div>
             <div className="text-[10px] tm-text-muted">Current PUE</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-amber-400">${Math.round(stats.co2OffsetKg * 365 * 0.1)}</div>
+            <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">${Math.round(stats.co2OffsetKg * 365 * 0.1)}</div>
             <div className="text-[10px] tm-text-muted">Projected annual savings</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-teal-400">{stats.co2OffsetKg}</div>
+            <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">{stats.co2OffsetKg}</div>
             <div className="text-[10px] tm-text-muted">kg CO₂ saved/day</div>
           </div>
         </div>
@@ -176,7 +176,7 @@ export function OptimizationPanel({ stats, nodes }: Props) {
           <details key={r.id} className="group rounded-xl border border-[var(--tm-border)] tm-card transition">
             <summary className="cursor-pointer list-none p-3">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0078D4]/20 text-[10px] font-bold text-[#50E6FF]">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0078D4]/20 text-[10px] font-bold text-[#0078D4]">
                   {r.rank}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -186,7 +186,7 @@ export function OptimizationPanel({ stats, nodes }: Props) {
                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${PRIORITY_COLOR[r.priority]}`}>{r.priority}</span>
                   </div>
                   <p className="mt-1 text-xs tm-text-muted">{r.summary}</p>
-                  <div className="mt-1.5 text-[10px] text-emerald-400 font-medium">{r.savings}</div>
+                  <div className="mt-1.5 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">{r.savings}</div>
                 </div>
                 <span className="tm-text-muted text-xs group-open:rotate-180 transition mt-1">▾</span>
               </div>
