@@ -67,7 +67,6 @@ function Header({ connectionStatus, darkMode, onToggleTheme, workloadSource, onT
       <div className="max-w-[1400px] mx-auto px-6 py-4 flex items-center justify-between">
         <div className="text-2xl font-bold bg-gradient-to-br from-[#50E6FF] to-[#0078D4] bg-clip-text text-transparent flex items-center gap-2">
           <span>❄️</span> ArcticFlow
-          <a href="https://icy-coast-05e96330f.7.azurestaticapps.net" target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#0078D4] hover:text-[#50E6FF] transition-colors ml-1" title="Visit live site">↗</a>
         </div>
         <div className="flex items-center gap-4">
           {/* Workload source toggle */}
