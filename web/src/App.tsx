@@ -74,7 +74,7 @@ function Header({ connectionStatus, darkMode, onToggleTheme, workloadSource, onT
             onClick={onToggleWorkload}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-300 ${
               workloadSource === 'azure'
-                ? 'bg-[#0078D4]/20 border-[#0078D4] text-[#50E6FF]'
+                ? 'bg-[#0078D4]/20 border-[#0078D4] text-[#0078D4]'
                 : 'bg-[var(--tm-surface)] border-[var(--tm-border)] tm-text-muted hover:border-[var(--tm-border-hover)]'
             }`}
             title={workloadSource === 'azure' ? 'Using real Azure VM trace data' : 'Using synthetic workload'}
@@ -89,7 +89,7 @@ function Header({ connectionStatus, darkMode, onToggleTheme, workloadSource, onT
           >
             {darkMode ? '☀️' : '🌙'}
           </button>
-          <div className={`tm-badge ${connectionStatus === 'connected' ? 'tm-badge-green' : connectionStatus === 'connecting' ? 'bg-yellow-400/20 text-yellow-300' : 'bg-red-400/20 text-red-300'}`}>
+          <div className={`tm-badge ${connectionStatus === 'connected' ? 'tm-badge-green' : connectionStatus === 'connecting' ? 'bg-yellow-400/20 text-yellow-700 dark:text-yellow-300' : 'bg-red-400/20 text-red-700 dark:text-red-300'}`}>
             <span className={`inline-block h-2 w-2 rounded-full ${statusColors[connectionStatus as keyof typeof statusColors] || 'bg-slate-400'} ${connectionStatus === 'connected' || connectionStatus === 'connecting' ? 'tm-pulse' : ''}`} />
             {statusLabels[connectionStatus as keyof typeof statusLabels] || 'Unknown'}
           </div>
